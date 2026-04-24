@@ -1,41 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
-import 'add_device_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _SearchScreenState extends State<SearchScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'Alle';
 
   final List<String> _categories = [
-    'Alle',
-    'Stofzuiger',
-    'Grasmaaier',
-    'Keukenmachine',
-    'Boormachine',
-    'Andere',
+    'Alle', 'Stofzuiger', 'Grasmaaier', 'Keukenmachine', 'Boormachine', 'Andere',
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Toestellen App'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Zoeken')),
       body: Column(
         children: [
           Padding(
@@ -77,20 +62,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Nog geen toestellen beschikbaar.'));
-                }
 
                 var devices = snapshot.data!.docs
                     .map((doc) => Device.fromMap(doc.id, doc.data() as Map<String, dynamic>))
                     .toList();
 
-                // Filter op categorie
                 if (_selectedCategory != 'Alle') {
                   devices = devices.where((d) => d.category == _selectedCategory).toList();
                 }
 
-                // Filter op zoekterm (naam of locatie)
                 if (_searchQuery.isNotEmpty) {
                   devices = devices.where((d) =>
                     d.name.toLowerCase().contains(_searchQuery) ||
@@ -125,13 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddDeviceScreen()),
-        ),
-        child: const Icon(Icons.add),
       ),
     );
   }
