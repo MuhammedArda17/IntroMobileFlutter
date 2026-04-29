@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
 import 'add_device_screen.dart';
+import 'book_device_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -85,12 +86,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     .map((doc) => Device.fromMap(doc.id, doc.data() as Map<String, dynamic>))
                     .toList();
 
-                // Filter op categorie
                 if (_selectedCategory != 'Alle') {
                   devices = devices.where((d) => d.category == _selectedCategory).toList();
                 }
 
-                // Filter op zoekterm (naam of locatie)
                 if (_searchQuery.isNotEmpty) {
                   devices = devices.where((d) =>
                     d.name.toLowerCase().contains(_searchQuery) ||
@@ -117,6 +116,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         trailing: device.available
                             ? const Chip(label: Text('Beschikbaar'))
                             : const Chip(label: Text('Verhuurd')),
+                        onTap: () {
+                          final currentUser = FirebaseAuth.instance.currentUser;
+                          if (device.ownerId == currentUser?.uid) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Je kan je eigen toestel niet huren!')),
+                            );
+                            return;
+                          }
+                          if (!device.available) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Dit toestel is momenteel niet beschikbaar.')),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => BookDeviceScreen(device: device)),
+                          );
+                        },
                       ),
                     );
                   },

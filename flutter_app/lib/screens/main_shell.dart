@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'search_screen.dart';
+import 'reservation_screen.dart';
 import 'profile_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -16,6 +17,7 @@ class _MainShellState extends State<MainShell> {
   final List<Widget> _screens = const [
     HomeScreen(),
     SearchScreen(),
+    ReservationScreen(),
     ProfileScreen(),
   ];
 
@@ -26,9 +28,12 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: Colors.black,
+        unselectedItemColor: Colors.black54,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Zoeken'),
+          BottomNavigationBarItem(icon: Icon(Icons.book_online), label: 'Reservaties'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profiel'),
         ],
       ),
