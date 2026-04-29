@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'search_screen.dart';
 import 'reservation_screen.dart';
+import 'chats_overview_screen.dart';
 import 'profile_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -16,8 +16,8 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    SearchScreen(),
     ReservationScreen(),
+    ChatsOverviewScreen(),
     ProfileScreen(),
   ];
 
@@ -32,8 +32,8 @@ class _MainShellState extends State<MainShell> {
         unselectedItemColor: Colors.black54,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Zoeken'),
           BottomNavigationBarItem(icon: Icon(Icons.book_online), label: 'Reservaties'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chats'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profiel'),
         ],
       ),

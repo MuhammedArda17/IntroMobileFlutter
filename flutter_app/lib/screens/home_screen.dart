@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
 import 'add_device_screen.dart';
 import 'book_device_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,12 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'Alle';
 
   final List<String> _categories = [
-    'Alle',
-    'Stofzuiger',
-    'Grasmaaier',
-    'Keukenmachine',
-    'Boormachine',
-    'Andere',
+    'Alle', 'Stofzuiger', 'Grasmaaier', 'Keukenmachine', 'Boormachine', 'Andere',
   ];
 
   @override
@@ -43,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               decoration: const InputDecoration(
-                labelText: 'Zoek op naam of locatie',
+                labelText: 'Zoek op naam of beschrijving',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
@@ -107,20 +103,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     final device = devices[index];
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        leading: device.imageUrl.isNotEmpty
-                            ? Image.network(device.imageUrl, width: 50, height: 50, fit: BoxFit.cover)
-                            : const Icon(Icons.devices, size: 50),
-                        title: Text(device.name),
-                        subtitle: Text('${device.category} · €${device.price}/dag'),
-                        trailing: device.available
-                            ? const Chip(label: Text('Beschikbaar'))
-                            : const Chip(label: Text('Verhuurd')),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
                         onTap: () {
-                          final currentUser = FirebaseAuth.instance.currentUser;
-                          if (device.ownerId == currentUser?.uid) {
+                          final currentUser = FirebaseAuth.instance.currentUser!;
+                          if (device.ownerId == currentUser.uid) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Je kan je eigen toestel niet huren!')),
+                              const SnackBar(content: Text('Dit is jouw eigen toestel!')),
                             );
                             return;
                           }
@@ -135,6 +124,57 @@ class _HomeScreenState extends State<HomeScreen> {
                             MaterialPageRoute(builder: (_) => BookDeviceScreen(device: device)),
                           );
                         },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              device.imageUrl.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(device.imageUrl, width: 60, height: 60, fit: BoxFit.cover),
+                                    )
+                                  : const Icon(Icons.devices, size: 60),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(device.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    Text('${device.category} · €${device.price}/dag', style: const TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 4),
+                                    Chip(
+                                      label: Text(device.available ? 'Beschikbaar' : 'Verhuurd'),
+                                      backgroundColor: device.available ? Colors.green[100] : Colors.red[100],
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+                                onPressed: () {
+                                  final currentUser = FirebaseAuth.instance.currentUser!;
+                                  if (device.ownerId == currentUser.uid) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Dit is jouw eigen toestel!')),
+                                    );
+                                    return;
+                                  }
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        deviceId: device.id,
+                                        deviceName: device.name,
+                                        otherUserId: device.ownerId,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },

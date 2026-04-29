@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
             return const CircularProgressIndicator();
           }
           if (snapshot.hasData)  {
-            return MainShell(); 
+            return const MainShell();
           }
           return const LoginScreen();
         },

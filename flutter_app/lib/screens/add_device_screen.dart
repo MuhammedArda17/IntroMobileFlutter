@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/device.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AddDeviceScreen extends StatefulWidget {
   const AddDeviceScreen({super.key});
@@ -14,9 +16,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  final _imageUrlController = TextEditingController();
   String _selectedCategory = 'Stofzuiger';
   bool _isLoading = false;
+  Uint8List? _selectedImageBytes;
 
   final List<String> _categories = [
     'Stofzuiger',
@@ -25,6 +27,22 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     'Boormachine',
     'Andere',
   ];
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() => _selectedImageBytes = bytes);
+    }
+  }
+
+  Future<String?> _uploadImage(String deviceId) async {
+    if (_selectedImageBytes == null) return null;
+    final ref = FirebaseStorage.instance.ref().child('devices/$deviceId.jpg');
+    await ref.putData(_selectedImageBytes!);
+    return await ref.getDownloadURL();
+  }
 
   Future<void> _addDevice() async {
     if (_nameController.text.isEmpty || _priceController.text.isEmpty) {
@@ -38,20 +56,21 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final device = Device(
-        id: '',
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        category: _selectedCategory,
-        price: double.parse(_priceController.text.trim()),
-        available: true,
-        ownerId: user.uid,
-        imageUrl: _imageUrlController.text.trim(),
-      );
 
-      await FirebaseFirestore.instance
-          .collection('devices')
-          .add(device.toMap());
+      final docRef = await FirebaseFirestore.instance.collection('devices').add({
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'category': _selectedCategory,
+        'price': double.parse(_priceController.text.trim()),
+        'available': true,
+        'ownerId': user.uid,
+        'imageUrl': '',
+      });
+
+      final imageUrl = await _uploadImage(docRef.id);
+      if (imageUrl != null) {
+        await docRef.update({'imageUrl': imageUrl});
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Toestel succesvol toegevoegd!')),
@@ -75,6 +94,32 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: _selectedImageBytes != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
+                        )
+                      : const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo, size: 48, color: Colors.grey),
+                            SizedBox(height: 8),
+                            Text('Tik om foto toe te voegen', style: TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Naam toestel *'),
@@ -100,17 +145,15 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                 decoration: const InputDecoration(labelText: 'Prijs per dag (€) *'),
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'Foto URL'),
-              ),
               const SizedBox(height: 24),
               _isLoading
                   ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _addDevice,
-                      child: const Text('Toestel toevoegen'),
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _addDevice,
+                        child: const Text('Toestel toevoegen'),
+                      ),
                     ),
             ],
           ),

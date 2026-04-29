@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -10,33 +11,62 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profiel')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              child: Icon(Icons.person, size: 40),
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(user!.uid).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          final name = data?['name'] ?? 'Onbekend';
+          final address = data?['address'] ?? 'Onbekend';
+
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 40,
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('Naam'),
+                  subtitle: Text(name),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.home),
+                  title: const Text('Adres'),
+                  subtitle: Text(address),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.email),
+                  title: const Text('E-mail'),
+                  subtitle: Text(user.email ?? 'Onbekend'),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Uitloggen'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text('E-mail: ${user?.email ?? 'Onbekend'}',
-                style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-            Text('UID: ${user?.uid ?? 'Onbekend'}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => FirebaseAuth.instance.signOut(),
-                icon: const Icon(Icons.logout),
-                label: const Text('Uitloggen'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
