@@ -18,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'Alle';
   double? _selectedRadius; // null = alle afstanden
 
-  // Locatie van de ingelogde gebruiker (uit Firestore)
   double? _userLat;
   double? _userLon;
 
@@ -49,10 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserLocation() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     final data = doc.data();
     if (data != null && mounted) {
       setState(() {
@@ -62,19 +58,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // JOUW ORIGINELE LOGICA (NIET AANGEPAST)
   List<Device> _filterDevices(List<Device> devices) {
     return devices.where((d) {
-      // Zoektekst filter
-      final matchesSearch =
-          _searchQuery.isEmpty ||
+      final matchesSearch = _searchQuery.isEmpty ||
           d.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           d.description.toLowerCase().contains(_searchQuery.toLowerCase());
 
-      // Categorie filter
-      final matchesCategory =
-          _selectedCategory == 'Alle' || d.category == _selectedCategory;
+      final matchesCategory = _selectedCategory == 'Alle' || d.category == _selectedCategory;
 
-      // Radius filter
       bool matchesRadius = true;
       if (_selectedRadius != null && _userLat != null && _userLon != null) {
         if (d.hasLocation) {
@@ -86,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           matchesRadius = dist <= _selectedRadius!;
         } else {
-          // Toestel heeft geen locatie → toon het niet bij radius filter
           matchesRadius = false;
         }
       }
@@ -110,38 +101,53 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Toestellen'), centerTitle: true),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Toestellen',
+          style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddDeviceScreen()),
         ),
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(
         children: [
-          // ── Zoekbalk ──
-          Padding(
+          // Zoekbalk
+          Container(
+            color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Zoek toestel...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: const InputDecoration(
+                  hintText: 'Zoek toestel...',
+                  prefixIcon: Icon(Icons.search, color: Colors.blueAccent),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
 
-          // ── Categorie + radius filter ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          // Filters Row
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                // Categorie chips
                 Expanded(
                   child: SizedBox(
                     height: 40,
@@ -156,8 +162,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: ChoiceChip(
                             label: Text(cat),
                             selected: selected,
-                            onSelected: (_) =>
-                                setState(() => _selectedCategory = cat),
+                            onSelected: (_) => setState(() => _selectedCategory = cat),
+                            selectedColor: Colors.blueAccent,
+                            labelStyle: TextStyle(
+                              color: selected ? Colors.white : Colors.black87,
+                            ),
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            side: BorderSide.none,
+                            showCheckmark: false,
                           ),
                         );
                       },
@@ -165,54 +178,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Radius dropdown (alleen tonen als gebruiker locatie heeft)
                 if (_userLat != null)
                   DropdownButton<double?>(
                     value: _selectedRadius,
                     underline: const SizedBox(),
-                    icon: const Icon(Icons.near_me, size: 18),
-                    items: _radii
-                        .map(
-                          (r) => DropdownMenuItem(
-                            value: r,
-                            child: Text(
-                              _radiusLabels[r]!,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedRadius = value),
+                    icon: const Icon(Icons.near_me, size: 18, color: Colors.blueAccent),
+                    items: _radii.map((r) {
+                      return DropdownMenuItem(
+                        value: r,
+                        child: Text(
+                          _radiusLabels[r]!,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _selectedRadius = value),
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 4),
 
-          // ── Toestellijst ──
+          // Toestellijst
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('devices')
-                  .snapshots(),
+              stream: FirebaseFirestore.instance.collection('devices').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Fout bij laden van toestellen.'),
-                  );
+                  return const Center(child: Text('Fout bij laden.'));
                 }
 
                 final allDevices = (snapshot.data?.docs ?? [])
-                    .map(
-                      (doc) => Device.fromMap(
-                        doc.data() as Map<String, dynamic>,
-                        doc.id,
-                      ),
-                    )
+                    .map((doc) => Device.fromMap(doc.data() as Map<String, dynamic>, doc.id))
                     .toList();
 
                 final devices = _filterDevices(allDevices);
@@ -222,10 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.all(12),
                   itemCount: devices.length,
                   itemBuilder: (context, index) {
                     final device = devices[index];
@@ -244,7 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Toestelkaartje ──
 class _DeviceCard extends StatelessWidget {
   final Device device;
   final double? distance;
@@ -253,113 +248,102 @@ class _DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: InkWell(
+        borderRadius: BorderRadius.circular(15),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => DeviceDetailScreen(device: device)),
         ),
         child: Row(
           children: [
-            // ── Thumbnail ──
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: device.imageUrl.isNotEmpty
-                  ? Image.network(
-                      device.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _imageFallback(),
-                    )
-                  : _imageFallback(),
+            // Thumbnail
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                bottomLeft: Radius.circular(15),
+              ),
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: device.imageUrl.isNotEmpty
+                    ? Image.network(device.imageUrl, fit: BoxFit.cover)
+                    : Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.devices, color: Colors.grey),
+                      ),
+              ),
             ),
 
-            // ── Info ──
+            // Info
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       device.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
                     Text(
                       device.category,
                       style: TextStyle(fontSize: 12, color: Colors.blue[700]),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '€${device.price.toStringAsFixed(2)}/dag',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green,
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '€${device.price.toStringAsFixed(2)}/dag',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                        if (distance != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 12, color: Colors.grey),
+                              Text(
+                                LocationService.formatDistance(distance!),
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
-                    // ── Afstand ──
-                    if (distance != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on,
-                            size: 13,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            LocationService.formatDistance(distance!),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
-
-            // ── Beschikbaarheid + pijl ──
+            
+            // Status
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Column(
-                children: [
-                  Icon(
-                    device.available ? Icons.check_circle : Icons.cancel,
-                    color: device.available ? Colors.green : Colors.red,
-                    size: 20,
-                  ),
-                  const SizedBox(height: 4),
-                  const Icon(Icons.chevron_right, color: Colors.grey),
-                ],
+              child: Icon(
+                device.available ? Icons.check_circle : Icons.cancel,
+                color: device.available ? Colors.green : Colors.red,
+                size: 20,
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _imageFallback() {
-    return Container(
-      color: Colors.grey[200],
-      child: const Icon(Icons.devices, color: Colors.grey, size: 36),
     );
   }
 }

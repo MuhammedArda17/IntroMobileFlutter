@@ -20,17 +20,27 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Toestellen App',
+      // DIT HAALT DIE RODE DEBUG BANNER WEG:
+      debugShowCheckedModeBanner: false, 
+      
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        // Een kleine extra touch: zorg dat de achtergrond overal strak is
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
+            // Netter laadschermpje
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
           }
-          if (snapshot.hasData)  {
+          if (snapshot.hasData) {
             return const MainShell();
           }
           return const LoginScreen();
