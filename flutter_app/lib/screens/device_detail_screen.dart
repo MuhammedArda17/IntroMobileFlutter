@@ -25,31 +25,73 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     super.dispose();
   }
 
-  Widget _buildHeroImage() {
+  Widget _buildImage({
+    double? width,
+    double? height,
+    BoxFit fit = BoxFit.cover,
+  }) {
     if (widget.device.imageBase64.isNotEmpty) {
-      return Image.memory(base64Decode(widget.device.imageBase64), fit: BoxFit.cover);
+      try {
+        return Image.memory(
+          base64Decode(widget.device.imageBase64),
+          width: width,
+          height: height,
+          fit: fit,
+        );
+      } catch (_) {}
     }
     if (widget.device.imageUrl.isNotEmpty) {
-      return Image.network(widget.device.imageUrl, fit: BoxFit.cover);
+      return Image.network(
+        widget.device.imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+      );
     }
     return Container(
+      width: width,
+      height: height,
       color: Colors.blueGrey[100],
-      child: const Icon(Icons.devices, size: 80, color: Colors.white),
+      child: const Icon(Icons.devices, size: 60, color: Colors.white),
+    );
+  }
+
+  void _openFullImage() {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _buildImage(
+            width: double.infinity,
+            height: 350,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
     );
   }
 
   Future<void> _submitReview() async {
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Geef minstens 1 ster!'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Geef minstens 1 ster!'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
     setState(() => _isSubmitting = true);
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      final userName = (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final userName =
+          (userDoc.data() as Map<String, dynamic>?)?['name'] ?? 'Anoniem';
 
       await FirebaseFirestore.instance.collection('reviews').add({
         'deviceId': widget.device.id,
@@ -69,13 +111,19 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         _isSubmitting = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Beoordeling verstuurd!'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Beoordeling verstuurd!'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fout: ${e.toString()}'), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text('Fout: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -90,20 +138,17 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 100,
             pinned: true,
             leading: CircleAvatar(
-              backgroundColor: Colors.white24,
+              backgroundColor: Colors.white,
               child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: () => Navigator.pop(context),
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'device_img_${widget.device.id}',
-                child: _buildHeroImage(),
-              ),
+              background: Container(color: const Color(0xFFF8FAFC)),
             ),
           ),
           SliverToBoxAdapter(
@@ -112,25 +157,62 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Foto — zelfde grootte als homepage kaartje, klikbaar om te vergroten
+                  GestureDetector(
+                    onTap: _openFullImage,
+                    child: Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: _buildImage(
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(widget.device.name,
-                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          widget.device.name,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      Text('€${widget.device.price.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
+                      Text(
+                        '€${widget.device.price.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.blueAccent),
+                      const Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.blueAccent,
+                      ),
                       const SizedBox(width: 4),
-                      Text(
-                        widget.device.address.isNotEmpty ? widget.device.address : 'Locatie onbekend',
-                        style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
+                      Expanded(
+                        child: Text(
+                          widget.device.address.isNotEmpty
+                              ? widget.device.address
+                              : 'Locatie onbekend',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.blueGrey,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -138,7 +220,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   Row(
                     children: [
                       _buildBadge(
-                        widget.device.available ? 'Beschikbaar' : 'Niet beschikbaar',
+                        widget.device.available
+                            ? 'Beschikbaar'
+                            : 'Niet beschikbaar',
                         widget.device.available ? Colors.green : Colors.red,
                       ),
                       const SizedBox(width: 8),
@@ -148,11 +232,20 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 10),
-                  const Text('Beschrijving', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Beschrijving',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    widget.device.description.isNotEmpty ? widget.device.description : 'Geen beschrijving beschikbaar.',
-                    style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
+                    widget.device.description.isNotEmpty
+                        ? widget.device.description
+                        : 'Geen beschrijving beschikbaar.',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 30),
                   Row(
@@ -160,16 +253,26 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: widget.device.available && !isOwner
-                              ? () => Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => BookDeviceScreen(device: widget.device)))
+                              ? () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        BookDeviceScreen(device: widget.device),
+                                  ),
+                                )
                               : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Direct Huren', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'Direct Huren',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -180,7 +283,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline, color: Colors.blueAccent),
+                            icon: const Icon(
+                              Icons.chat_bubble_outline,
+                              color: Colors.blueAccent,
+                            ),
                             onPressed: () => Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -198,7 +304,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   const SizedBox(height: 40),
                   const Divider(),
                   const SizedBox(height: 20),
-                  const Text('Beoordelingen', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Beoordelingen',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
@@ -206,26 +315,36 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                         .where('deviceId', isEqualTo: widget.device.id)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.hasError) return const Text('Fout bij laden reviews.');
+                      if (snapshot.hasError)
+                        return const Text('Fout bij laden reviews.');
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 10),
-                          child: Text('Nog geen beoordelingen.', style: TextStyle(color: Colors.grey)),
+                          child: Text(
+                            'Nog geen beoordelingen.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         );
                       }
                       final reviews = snapshot.data!.docs.toList()
                         ..sort((a, b) {
-                          final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                          final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                          final aTime =
+                              (a.data() as Map<String, dynamic>)['createdAt']
+                                  as Timestamp?;
+                          final bTime =
+                              (b.data() as Map<String, dynamic>)['createdAt']
+                                  as Timestamp?;
                           if (aTime == null || bTime == null) return 0;
                           return bTime.compareTo(aTime);
                         });
                       return Column(
                         children: reviews.map((doc) {
-                          return _buildReviewCard(doc.data() as Map<String, dynamic>);
+                          return _buildReviewCard(
+                            doc.data() as Map<String, dynamic>,
+                          );
                         }).toList(),
                       );
                     },
@@ -236,18 +355,24 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Laat een beoordeling achter', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Text(
+                            'Laat een beoordeling achter',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(5, (index) {
                               return IconButton(
                                 icon: Icon(
-                                  index < _rating ? Icons.star : Icons.star_border,
+                                  index < _rating
+                                      ? Icons.star
+                                      : Icons.star_border,
                                   color: Colors.amber,
                                   size: 32,
                                 ),
-                                onPressed: () => setState(() => _rating = index + 1),
+                                onPressed: () =>
+                                    setState(() => _rating = index + 1),
                               );
                             }),
                           ),
@@ -258,7 +383,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                               filled: true,
                               fillColor: Colors.grey[100],
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                             maxLines: 2,
                           ),
@@ -270,10 +397,18 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black87,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                               child: _isSubmitting
-                                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : const Text('Verstuur'),
                             ),
                           ),
@@ -294,8 +429,18 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   Widget _buildBadge(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 
@@ -305,22 +450,38 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(data['reviewerName'] ?? 'Anoniem', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Row(children: List.generate(5, (i) => Icon(i < rating ? Icons.star : Icons.star_border, color: Colors.amber, size: 14))),
+              Text(
+                data['reviewerName'] ?? 'Anoniem',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: List.generate(
+                  5,
+                  (i) => Icon(
+                    i < rating ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 14,
+                  ),
+                ),
+              ),
             ],
           ),
           if (data['comment']?.isNotEmpty ?? false) ...[
             const SizedBox(height: 6),
-            Text(data['comment'], style: const TextStyle(fontSize: 14, color: Colors.black87)),
+            Text(
+              data['comment'],
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
           ],
         ],
       ),
@@ -333,7 +494,13 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: child,
     );
