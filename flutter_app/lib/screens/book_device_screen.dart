@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
-
+import '../services/notification_service.dart';
 class BookDeviceScreen extends StatefulWidget {
   final Device device;
   const BookDeviceScreen({super.key, required this.device});
 
   @override
+  
   State<BookDeviceScreen> createState() => _BookDeviceScreenState();
 }
 
@@ -65,6 +66,12 @@ class _BookDeviceScreenState extends State<BookDeviceScreen> {
         'totalPrice': totalPrice,
         'status': 'afwachting',
       });
+      // Notificatie naar verhuurder
+      await NotificationService.send(
+      userId: widget.device.ownerId,
+      type: 'nieuwe_aanvraag',
+      message: 'Nieuw huurverzoek voor "${widget.device.name}"',
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reservatieverzoek verzonden!')),

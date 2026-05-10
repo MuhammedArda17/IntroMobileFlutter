@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'Alle';
-  double? _selectedRadius; // null = alle afstanden
+  double? _selectedRadius;
 
   double? _userLat;
   double? _userLon;
@@ -58,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // JOUW ORIGINELE LOGICA (NIET AANGEPAST)
   List<Device> _filterDevices(List<Device> devices) {
     return devices.where((d) {
       final matchesSearch = _searchQuery.isEmpty ||
@@ -70,12 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bool matchesRadius = true;
       if (_selectedRadius != null && _userLat != null && _userLon != null) {
         if (d.hasLocation) {
-          final dist = LocationService.distanceInKm(
-            _userLat!,
-            _userLon!,
-            d.latitude!,
-            d.longitude!,
-          );
+          final dist = LocationService.distanceInKm(_userLat!, _userLon!, d.latitude!, d.longitude!);
           matchesRadius = dist <= _selectedRadius!;
         } else {
           matchesRadius = false;
@@ -87,15 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double? _getDistance(Device device) {
-    if (_userLat == null || _userLon == null || !device.hasLocation) {
-      return null;
-    }
-    return LocationService.distanceInKm(
-      _userLat!,
-      _userLon!,
-      device.latitude!,
-      device.longitude!,
-    );
+    if (_userLat == null || _userLon == null || !device.hasLocation) return null;
+    return LocationService.distanceInKm(_userLat!, _userLon!, device.latitude!, device.longitude!);
   }
 
   @override
@@ -121,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Zoekbalk
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -141,8 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
-          // Filters Row
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -164,9 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             selected: selected,
                             onSelected: (_) => setState(() => _selectedCategory = cat),
                             selectedColor: Colors.blueAccent,
-                            labelStyle: TextStyle(
-                              color: selected ? Colors.white : Colors.black87,
-                            ),
+                            labelStyle: TextStyle(color: selected ? Colors.white : Colors.black87),
                             backgroundColor: const Color(0xFFF1F5F9),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             side: BorderSide.none,
@@ -186,10 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     items: _radii.map((r) {
                       return DropdownMenuItem(
                         value: r,
-                        child: Text(
-                          _radiusLabels[r]!,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        child: Text(_radiusLabels[r]!, style: const TextStyle(fontSize: 13)),
                       );
                     }).toList(),
                     onChanged: (value) => setState(() => _selectedRadius = value),
@@ -197,8 +177,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          // Toestellijst
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('devices').snapshots(),
@@ -206,9 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Fout bij laden.'));
-                }
+                if (snapshot.hasError) return const Center(child: Text('Fout bij laden.'));
 
                 final allDevices = (snapshot.data?.docs ?? [])
                     .map((doc) => Device.fromMap(doc.data() as Map<String, dynamic>, doc.id))
@@ -216,19 +192,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 final devices = _filterDevices(allDevices);
 
-                if (devices.isEmpty) {
-                  return const Center(child: Text('Geen toestellen gevonden.'));
-                }
+                if (devices.isEmpty) return const Center(child: Text('Geen toestellen gevonden.'));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: devices.length,
                   itemBuilder: (context, index) {
-                    final device = devices[index];
-                    return _DeviceCard(
-                      device: device,
-                      distance: _getDistance(device),
-                    );
+                    return _DeviceCard(device: devices[index], distance: _getDistance(devices[index]));
                   },
                 );
               },
@@ -246,6 +216,16 @@ class _DeviceCard extends StatelessWidget {
 
   const _DeviceCard({required this.device, this.distance});
 
+  Widget _buildImage() {
+    if (device.imageBase64.isNotEmpty) {
+      return Image.memory(base64Decode(device.imageBase64), fit: BoxFit.cover);
+    }
+    if (device.imageUrl.isNotEmpty) {
+      return Image.network(device.imageUrl, fit: BoxFit.cover);
+    }
+    return Container(color: Colors.grey[200], child: const Icon(Icons.devices, color: Colors.grey));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -253,76 +233,43 @@ class _DeviceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => DeviceDetailScreen(device: device)),
-        ),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DeviceDetailScreen(device: device))),
         child: Row(
           children: [
-            // Thumbnail
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(15),
                 bottomLeft: Radius.circular(15),
               ),
-              child: SizedBox(
-                width: 100,
-                height: 100,
-                child: device.imageUrl.isNotEmpty
-                    ? Image.network(device.imageUrl, fit: BoxFit.cover)
-                    : Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.devices, color: Colors.grey),
-                      ),
-              ),
+              child: SizedBox(width: 100, height: 100, child: _buildImage()),
             ),
-
-            // Info
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      device.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      device.category,
-                      style: TextStyle(fontSize: 12, color: Colors.blue[700]),
-                    ),
+                    Text(device.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    Text(device.category, style: TextStyle(fontSize: 12, color: Colors.blue[700])),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '€${device.price.toStringAsFixed(2)}/dag',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
+                        Text('€${device.price.toStringAsFixed(2)}/dag',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                         if (distance != null)
                           Row(
                             children: [
                               const Icon(Icons.location_on, size: 12, color: Colors.grey),
-                              Text(
-                                LocationService.formatDistance(distance!),
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
+                              Text(LocationService.formatDistance(distance!),
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
                             ],
                           ),
                       ],
@@ -331,8 +278,6 @@ class _DeviceCard extends StatelessWidget {
                 ),
               ),
             ),
-            
-            // Status
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Icon(

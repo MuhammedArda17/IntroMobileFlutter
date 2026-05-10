@@ -2,17 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/reservation.dart';
+import '../services/notification_service.dart';
 
 class ReservationScreen extends StatelessWidget {
   const ReservationScreen({super.key});
 
-  Future<void> _updateStatus(String reservationId, String deviceId, String status) async {
+  Future<void> _updateStatus(String reservationId, String deviceId, String status, String renterId, String deviceName) async {
     final batch = FirebaseFirestore.instance.batch();
     final reservationRef = FirebaseFirestore.instance.collection('reservations').doc(reservationId);
     batch.update(reservationRef, {'status': status});
     final deviceRef = FirebaseFirestore.instance.collection('devices').doc(deviceId);
     batch.update(deviceRef, {'available': status == 'geweigerd'});
     await batch.commit();
+
+    await NotificationService.send(
+      userId: renterId,
+      type: status,
+      message: status == 'geaccepteerd'
+          ? 'Je huurverzoek voor "$deviceName" is geaccepteerd! 🎉'
+          : 'Je huurverzoek voor "$deviceName" is helaas geweigerd.',
+    );
   }
 
   Future<void> _deleteDevice(String deviceId) async {
@@ -136,7 +145,6 @@ class ReservationScreen extends StatelessWidget {
                               backgroundColor: available ? Colors.green[100] : Colors.red[100],
                             ),
                           ),
-                          // Reservaties voor dit toestel
                           StreamBuilder<QuerySnapshot>(
                             stream: FirebaseFirestore.instance
                                 .collection('reservations')
@@ -191,19 +199,23 @@ class ReservationScreen extends StatelessWidget {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text('${r.startDate.day}/${r.startDate.month}/${r.startDate.year} → ${r.endDate.day}/${r.endDate.month}/${r.endDate.year} · $days dagen · €${r.totalPrice.toStringAsFixed(2)}'),
+                                            Text(
+                                              '${r.startDate.day}/${r.startDate.month}/${r.startDate.year} → '
+                                              '${r.endDate.day}/${r.endDate.month}/${r.endDate.year} · '
+                                              '$days dagen · €${r.totalPrice.toStringAsFixed(2)}',
+                                            ),
                                             const SizedBox(height: 4),
                                             if (r.status == 'afwachting')
                                               Row(
                                                 mainAxisAlignment: MainAxisAlignment.end,
                                                 children: [
                                                   TextButton.icon(
-                                                    onPressed: () => _updateStatus(r.id, deviceId, 'geweigerd'),
+                                                    onPressed: () => _updateStatus(r.id, deviceId, 'geweigerd', r.renterId, r.deviceName),
                                                     icon: const Icon(Icons.close, color: Colors.red),
                                                     label: const Text('Weigeren', style: TextStyle(color: Colors.red)),
                                                   ),
                                                   ElevatedButton.icon(
-                                                    onPressed: () => _updateStatus(r.id, deviceId, 'geaccepteerd'),
+                                                    onPressed: () => _updateStatus(r.id, deviceId, 'geaccepteerd', r.renterId, r.deviceName),
                                                     icon: const Icon(Icons.check),
                                                     label: const Text('Accepteren'),
                                                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),

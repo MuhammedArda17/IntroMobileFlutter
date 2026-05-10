@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,6 +23,19 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+
+  Widget _buildHeroImage() {
+    if (widget.device.imageBase64.isNotEmpty) {
+      return Image.memory(base64Decode(widget.device.imageBase64), fit: BoxFit.cover);
+    }
+    if (widget.device.imageUrl.isNotEmpty) {
+      return Image.network(widget.device.imageUrl, fit: BoxFit.cover);
+    }
+    return Container(
+      color: Colors.blueGrey[100],
+      child: const Icon(Icons.devices, size: 80, color: Colors.white),
+    );
   }
 
   Future<void> _submitReview() async {
@@ -54,7 +68,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         _commentController.clear();
         _isSubmitting = false;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Beoordeling verstuurd!'), behavior: SnackBarBehavior.floating),
       );
@@ -76,7 +89,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: CustomScrollView(
         slivers: [
-          // Mooie uitklapbare header met foto
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
@@ -90,54 +102,39 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             flexibleSpace: FlexibleSpaceBar(
               background: Hero(
                 tag: 'device_img_${widget.device.id}',
-                child: widget.device.imageUrl.isNotEmpty
-                    ? Image.network(widget.device.imageUrl, fit: BoxFit.cover)
-                    : Container(
-                        color: Colors.blueGrey[100],
-                        child: const Icon(Icons.devices, size: 80, color: Colors.white),
-                      ),
+                child: _buildHeroImage(),
               ),
             ),
           ),
-
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Titel en Prijs
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          widget.device.name,
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                        ),
+                        child: Text(widget.device.name,
+                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                       ),
-                      Text(
-                        '€${widget.device.price.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
-                      ),
+                      Text('€${widget.device.price.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
                     ],
                   ),
                   const SizedBox(height: 8),
-
-                  // Straatnaam & Locatie (Toegevoegd)
                   Row(
                     children: [
                       const Icon(Icons.location_on, size: 16, color: Colors.blueAccent),
                       const SizedBox(width: 4),
                       Text(
-                        widget.device.address.isNotEmpty ? widget.device.address : "Locatie onbekend",
+                        widget.device.address.isNotEmpty ? widget.device.address : 'Locatie onbekend',
                         style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Chips (Status & Categorie)
                   Row(
                     children: [
                       _buildBadge(
@@ -148,31 +145,23 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       _buildBadge(widget.device.category, Colors.blueAccent),
                     ],
                   ),
-
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 10),
-
-                  // Beschrijving
-                  const Text("Beschrijving", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Beschrijving', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
-                    widget.device.description.isNotEmpty ? widget.device.description : "Geen beschrijving beschikbaar.",
+                    widget.device.description.isNotEmpty ? widget.device.description : 'Geen beschrijving beschikbaar.',
                     style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
                   ),
-
                   const SizedBox(height: 30),
-
-                  // Actie Knoppen
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
                           onPressed: widget.device.available && !isOwner
-                              ? () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => BookDeviceScreen(device: widget.device)),
-                                  )
+                              ? () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => BookDeviceScreen(device: widget.device)))
                               : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
@@ -206,15 +195,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 40),
                   const Divider(),
                   const SizedBox(height: 20),
-
-                  // Reviews sectie
                   const Text('Beoordelingen', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('reviews')
@@ -222,14 +207,15 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) return const Text('Fout bij laden reviews.');
-                      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
                       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 10),
                           child: Text('Nog geen beoordelingen.', style: TextStyle(color: Colors.grey)),
                         );
                       }
-
                       final reviews = snapshot.data!.docs.toList()
                         ..sort((a, b) {
                           final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
@@ -237,19 +223,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                           if (aTime == null || bTime == null) return 0;
                           return bTime.compareTo(aTime);
                         });
-
                       return Column(
                         children: reviews.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          return _buildReviewCard(data);
+                          return _buildReviewCard(doc.data() as Map<String, dynamic>);
                         }).toList(),
                       );
                     },
                   ),
-
                   const SizedBox(height: 30),
-
-                  // Review schrijven
                   if (!isOwner) ...[
                     _buildInputCard(
                       child: Column(
@@ -276,7 +257,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                               hintText: 'Wat vind je van dit toestel?',
                               filled: true,
                               fillColor: Colors.grey[100],
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             ),
                             maxLines: 2,
                           ),
@@ -290,7 +272,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: _isSubmitting ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Verstuur'),
+                              child: _isSubmitting
+                                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Text('Verstuur'),
                             ),
                           ),
                         ],
@@ -307,7 +291,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     );
   }
 
-  // Helpers voor de UI
   Widget _buildBadge(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -321,7 +304,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -335,7 +321,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
           if (data['comment']?.isNotEmpty ?? false) ...[
             const SizedBox(height: 6),
             Text(data['comment'], style: const TextStyle(fontSize: 14, color: Colors.black87)),
-          ]
+          ],
         ],
       ),
     );

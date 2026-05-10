@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'location_service.dart';
 
@@ -24,7 +24,6 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   String _selectedCategory = 'Alle';
 
   Uint8List? _imageBytes;
-  String? _imageFileName;
   File? _imageFile;
 
   bool _isLoading = false;
@@ -55,24 +54,28 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 75,
+      imageQuality: 50,
+      maxWidth: 800,
     );
     if (picked == null) return;
 
-    if (kIsWeb) {
-      final bytes = await picked.readAsBytes();
-      setState(() {
-        _imageBytes = bytes;
-        _imageFileName = picked.name;
-        _imageFile = null;
-      });
-    } else {
-      setState(() {
-        _imageFile = File(picked.path);
-        _imageBytes = null;
-        _imageFileName = null;
-      });
+    final bytes = await picked.readAsBytes();
+
+    if (bytes.length > 900000) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto is te groot. Kies een kleinere foto.')),
+        );
+      }
+      return;
     }
+
+    setState(() {
+      _imageBytes = bytes;
+      if (!kIsWeb) {
+        _imageFile = File(picked.path);
+      }
+    });
   }
 
   Future<void> _fillAddressFromGps() async {
@@ -133,6 +136,13 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       return;
     }
 
+    if (_imageBytes != null && _imageBytes!.length > 900000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto is te groot. Kies een kleinere foto.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -141,20 +151,13 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       }
 
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      String imageUrl = '';
+      String imageBase64 = '';
 
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance.ref().child('devices').child(fileName);
-
-      if (kIsWeb && _imageBytes != null) {
-        await ref.putData(
-          _imageBytes!,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-        imageUrl = await ref.getDownloadURL();
-      } else if (!kIsWeb && _imageFile != null) {
-        await ref.putFile(_imageFile!);
-        imageUrl = await ref.getDownloadURL();
+      if (_imageBytes != null) {
+        imageBase64 = base64Encode(_imageBytes!);
+      } else if (_imageFile != null) {
+        final bytes = await _imageFile!.readAsBytes();
+        imageBase64 = base64Encode(bytes);
       }
 
       await FirebaseFirestore.instance.collection('devices').add({
@@ -164,7 +167,8 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         'price': price,
         'available': true,
         'ownerId': uid,
-        'imageUrl': imageUrl,
+        'imageBase64': imageBase64,
+        'imageUrl': '',
         'address': address,
         'latitude': _latitude,
         'longitude': _longitude,
@@ -185,10 +189,8 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   }
 
   Widget _buildImagePreview() {
-    if (kIsWeb && _imageBytes != null) {
+    if (_imageBytes != null) {
       return Image.memory(_imageBytes!, fit: BoxFit.cover);
-    } else if (!kIsWeb && _imageFile != null) {
-      return Image.file(_imageFile!, fit: BoxFit.cover);
     }
     return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -200,7 +202,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     );
   }
 
-  bool get _hasImage => (kIsWeb && _imageBytes != null) || (!kIsWeb && _imageFile != null);
+  bool get _hasImage => _imageBytes != null;
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +258,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 25),
 
             _buildSectionTitle('INFORMATIE'),
@@ -349,7 +351,6 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
             const SizedBox(height: 32),
 
-            // ── Opslaan Knop ──
             SizedBox(
               width: double.infinity,
               height: 55,
